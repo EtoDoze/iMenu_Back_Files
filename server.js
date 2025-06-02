@@ -13,6 +13,7 @@ const __dirname = dirname(__filename);
 
 // Criar o servidor
 const app = express();
+const DOMAIN = process.env.DOMAIN || 'https://imenu-back-files.onrender.com';
 
 // Middlewares
 app.use(cors());
@@ -56,6 +57,9 @@ const upload = multer({
 const filesDB = {};
 
 // Rota para upload
+// Adicione esta configuração no início do arquivo, após as importações
+
+// Modifique a rota de upload para usar o DOMAIN
 app.post('/api/cardapio', upload.single('imagem'), (req, res) => {
   try {
     if (!req.file) {
@@ -83,10 +87,10 @@ app.post('/api/cardapio', upload.single('imagem'), (req, res) => {
       success: true,
       message: "Cardápio publicado com sucesso!",
       data: {
-        downloadLink: `http://localhost:3009/download/${fileId}`,
+        downloadLink: `${DOMAIN}/download/${fileId}`,
         title,
         content,
-        imageUrl: `http://localhost:3009/uploads/${req.file.filename}`
+        imageUrl: `${DOMAIN}/uploads/${req.file.filename}`
       }
     });
   } catch (error) {
