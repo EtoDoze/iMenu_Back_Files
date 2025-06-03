@@ -2,56 +2,50 @@ import express from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import cors from 'cors';
 
-import dotenv from 'dotenv';
-dotenv.config();
-const SECRET_KEY = process.env.SECRET_KEY;
-
-// Configuração do Cloudinary (substitua com suas credenciais)
+// Configuração do Cloudinary
 cloudinary.config({ 
-  cloud_name: process.env.CLOUDINARY_NAME || 'dmcmgwdu4',
-  api_key: process.env.CLOUDINARY_KEY || 'xxxx', 
-  api_secret: process.env.CLOUDINARY_SECRET || 'xxxx'
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY, 
+  api_secret: process.env.CLOUDINARY_SECRET
 });
 
 const app = express();
 
-// Middlewares
+// Middlewares CORRIGIDOS (adicione limite maior para imagens)
 app.use(cors());
-app.use(express.json({ limit: '5mb' })); // Permite receber imagens em base64
-app.use(express.static('public')); // Serve arquivos estáticos (opcional)
+app.use(express.json({ limit: '25mb' })); // Aumente o limite para imagens grandes
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Rota de upload (SIMPLIFICADA)
+// Rota de upload CORRIGIDA
 app.post('/api/cardapio', async (req, res) => {
   try {
-    const { imagem, title, content, linksocial, privacidade } = req.body;
+    console.log("Corpo recebido:", req.body); // Debug
+    
+    if (!req.body || !req.body.imagem) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Dados da imagem não recebidos" 
+      });
+    }
 
-    // Faz upload direto para o Cloudinary
-    const result = await cloudinary.uploader.upload(imagem, {
-      folder: "capas",
-      upload_preset: "cardapios_preset" // Configure no painel do Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(`data:image/jpeg;base64,${req.body.imagem}`, {
+      folder: "cardapios",
+      upload_preset: "cardapios_preset"
     });
 
-    // Aqui você pode salvar os dados no seu banco de dados (opcional)
-    // Exemplo: await Database.save({ title, content, imageUrl: result.secure_url });
-
-    res.json({ 
+    res.json({
       success: true,
-      data: {
-        imageUrl: result.secure_url, // URL pública da imagem
-        title,
-        content,
-        linksocial,
-        privacidade
-      }
+      imageUrl: uploadResult.secure_url
     });
+
   } catch (error) {
-    console.error("Erro no upload:", error);
-    res.status(500).json({ success: false, error: "Falha no upload da imagem" });
+    console.error("Erro detalhado:", error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
   }
 });
 
-// Inicia o servidor
 const PORT = process.env.PORT || 3009;
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
