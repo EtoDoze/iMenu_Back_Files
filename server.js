@@ -11,31 +11,44 @@ cloudinary.config({
 
 const app = express();
 
-// Middlewares CORRIGIDOS (adicione limite maior para imagens)
 app.use(cors());
-app.use(express.json({ limit: '25mb' })); // Aumente o limite para imagens grandes
+app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Rota de upload CORRIGIDA
-app.post('/api/cardapio', async (req, res) => {
+// Rota de upload atualizada
+app.post('/api/upload', async (req, res) => {
   try {
-    console.log("Corpo recebido:", req.body); // Debug
-    
-    if (!req.body || !req.body.imagem) {
+    if (!req.body || !req.body.file) {
       return res.status(400).json({ 
         success: false,
-        error: "Dados da imagem não recebidos" 
+        error: "Dados do arquivo não recebidos" 
       });
     }
 
-    const uploadResult = await cloudinary.uploader.upload(`data:image/jpeg;base64,${req.body.imagem}`, {
-      folder: "cardapios",
-      upload_preset: "cardapios_preset"
-    });
+    let uploadResult;
+    const fileType = req.body.fileType || 'image';
+
+    if (fileType.includes('pdf')) {
+      uploadResult = await cloudinary.uploader.upload(
+        `data:application/pdf;base64,${req.body.file}`, {
+          resource_type: 'raw',
+          folder: "cardapios",
+          upload_preset: "cardapios_preset"
+        }
+      );
+    } else {
+      uploadResult = await cloudinary.uploader.upload(
+        `data:image/jpeg;base64,${req.body.file}`, {
+          folder: "cardapios",
+          upload_preset: "cardapios_preset"
+        }
+      );
+    }
 
     res.json({
       success: true,
-      imageUrl: uploadResult.secure_url
+      fileUrl: uploadResult.secure_url,
+      fileType: fileType
     });
 
   } catch (error) {
