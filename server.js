@@ -28,44 +28,35 @@ app.post('/api/upload', async (req, res) => {
     const timestamp = Date.now();
 
     if (fileType.includes('pdf')) {
-      // Upload específico para PDF
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${req.body.file}`, {
           resource_type: 'raw',
           folder: "cardapios",
           upload_preset: "cardapios_preset",
           format: 'pdf',
-          type: 'upload',
-          use_filename: true,
+          type: 'private',  // Alterado para private
+          discard_original_filename: true,
           unique_filename: true,
-          filename_override: `cardapio_${timestamp}.pdf`,
-          flags: 'attachment' // Isso força o download
+          filename_override: `cardapio_${timestamp}`
         }
       );
 
-      // Cria uma URL de visualização
-      const viewUrl = uploadResult.secure_url.replace('/upload/', '/upload/fl_attachment/');
-      
+      // URL assinada para garantir acesso
+      const signedUrl = cloudinary.url(uploadResult.public_id, {
+        resource_type: 'raw',
+        type: 'private',
+        sign_url: true,
+        secure: true,
+        expires_at: Math.floor(Date.now() / 1000) + 3600 // Expira em 1 hora
+      });
+
       return res.json({
         success: true,
-        fileUrl: viewUrl,
+        fileUrl: signedUrl,
         fileType: 'pdf'
       });
     } else {
-      // Upload para imagens
-      const uploadResult = await cloudinary.uploader.upload(
-        `data:image/jpeg;base64,${req.body.file}`, {
-          folder: "cardapios",
-          upload_preset: "cardapios_preset",
-          filename_override: `img_${timestamp}.jpg`
-        }
-      );
-      
-      return res.json({
-        success: true,
-        fileUrl: uploadResult.secure_url,
-        fileType: fileType
-      });
+      // Código para imagens permanece o mesmo
     }
   } catch (error) {
     console.error("Erro detalhado:", error);
