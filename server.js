@@ -15,7 +15,6 @@ app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Rota de upload atualizada
 app.post('/api/upload', async (req, res) => {
   try {
     if (!req.body || !req.body.file) {
@@ -30,7 +29,6 @@ app.post('/api/upload', async (req, res) => {
     const timestamp = Date.now();
 
     if (fileType.includes('pdf')) {
-      // Configuração específica para PDFs
       uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${req.body.file}`, {
           resource_type: 'raw',
@@ -40,28 +38,16 @@ app.post('/api/upload', async (req, res) => {
           type: 'upload',
           use_filename: true,
           unique_filename: true,
-          // Força o Cloudinary a servir o PDF corretamente
-          transformation: [
-            { flags: 'attachment', quality: 'auto' }
-          ],
-          // Garante que a URL terminará com .pdf
           filename_override: `cardapio_${timestamp}.pdf`
         }
       );
       
-      // Modifica a URL para garantir visualização
-      let fileUrl = uploadResult.secure_url;
-      
-      // Remove transformações problemáticas se existirem
-      fileUrl = fileUrl.replace(/\/upload\/.*\/v\d+\//, '/upload/');
-      
-      res.json({
+      return res.json({
         success: true,
-        fileUrl: fileUrl,
+        fileUrl: uploadResult.secure_url,
         fileType: 'pdf'
       });
-    }
-else {
+    } else {
       uploadResult = await cloudinary.uploader.upload(
         `data:image/jpeg;base64,${req.body.file}`, {
           folder: "cardapios",
@@ -69,14 +55,13 @@ else {
           filename_override: `img_${timestamp}.jpg`
         }
       );
+      
+      return res.json({
+        success: true,
+        fileUrl: uploadResult.secure_url,
+        fileType: fileType
+      });
     }
-
-    res.json({
-      success: true,
-      fileUrl: uploadResult.secure_url,
-      fileType: fileType
-    });
-
   } catch (error) {
     console.error("Erro detalhado:", error);
     res.status(500).json({ 
