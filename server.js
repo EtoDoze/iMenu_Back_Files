@@ -29,25 +29,30 @@ app.post('/api/upload', async (req, res) => {
     const fileType = req.body.fileType || 'image';
     const timestamp = Date.now();
 
- if (fileType.includes('pdf')) {
+if (fileType.includes('pdf')) {
   uploadResult = await cloudinary.uploader.upload(
     `data:application/pdf;base64,${req.body.file}`, {
       resource_type: 'raw',
       folder: "cardapios",
       upload_preset: "cardapios_preset",
-      filename_override: `doc_${Date.now()}.pdf`,
-      use_filename: true,
-      unique_filename: false,
       format: 'pdf',
-      // Força o download correto
-      flags: 'attachment'
+      type: 'authenticated', // Garante URL acessível
+      sign_url: true // Opcional para contas free
     }
   );
   
-  // Garante URL correta para visualização
-  const secureUrl = uploadResult.secure_url.replace('.pdf', '') + '.pdf';
-  uploadResult.secure_url = secureUrl;
-} else {
+  // URL modificada para visualização direta
+  const viewUrl = uploadResult.secure_url
+    .replace('/upload/', '/upload/fl_attachment:no_redirect/')
+    .replace('.pdf', '') + '.pdf';
+  
+  res.json({
+    success: true,
+    fileUrl: viewUrl,
+    fileType: 'pdf'
+  });
+}
+else {
       uploadResult = await cloudinary.uploader.upload(
         `data:image/jpeg;base64,${req.body.file}`, {
           folder: "cardapios",
