@@ -27,32 +27,36 @@ app.post('/api/upload', async (req, res) => {
 
     let uploadResult;
     const fileType = req.body.fileType || 'image';
+    const timestamp = Date.now();
 
-if (fileType.includes('pdf')) {
-  uploadResult = await cloudinary.uploader.upload(
-    `data:application/pdf;base64,${req.body.file}`, {
-      resource_type: 'raw',
-      folder: "cardapios",
-      upload_preset: "cardapios_preset",
-      // Adicione esta linha para forçar a extensão
-      filename_override: `${Date.now()}.pdf`,
-      // Isso garante que o link de download inclua .pdf
-      use_filename: true,
-      unique_filename: false
-    }
-  );
-}
-
-else {
+    if (fileType.includes('pdf')) {
+      uploadResult = await cloudinary.uploader.upload(
+        `data:application/pdf;base64,${req.body.file}`, {
+          resource_type: 'raw',
+          folder: "cardapios",
+          upload_preset: "cardapios_preset",
+          filename_override: `doc_${timestamp}.pdf`,
+          use_filename: true,
+          unique_filename: false,
+          // Força o Cloudinary a manter a extensão
+          format: 'pdf'
+        }
+      );
+      
+      // Garante que a URL termine com .pdf
+      if (!uploadResult.secure_url.toLowerCase().endsWith('.pdf')) {
+        uploadResult.secure_url += '.pdf';
+      }
+    } else {
       uploadResult = await cloudinary.uploader.upload(
         `data:image/jpeg;base64,${req.body.file}`, {
           folder: "cardapios",
-          upload_preset: "cardapios_preset"
+          upload_preset: "cardapios_preset",
+          filename_override: `img_${timestamp}.jpg`
         }
       );
     }
 
-    
     res.json({
       success: true,
       fileUrl: uploadResult.secure_url,
