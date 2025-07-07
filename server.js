@@ -12,13 +12,22 @@ cloudinary.config({
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.json({ limit: '50mb' })); // Aumente o limite
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Middleware de log para depuração
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+});
 
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
+    console.log('Recebendo upload...');
+    
     if (!req.body || !req.body.file) {
+      console.error('Dados do arquivo não recebidos');
       return res.status(400).json({ 
         success: false,
         error: "Dados do arquivo não recebidos" 
@@ -27,23 +36,28 @@ app.post('/api/upload', async (req, res) => {
 
     const fileType = req.body.fileType || 'image';
     const timestamp = Date.now();
+    const options = {
+      resource_type: fileType.includes('pdf') ? 'raw' : 'image',
+      folder: "cardapios",
+      upload_preset: "cardapios_preset",
+      use_filename: true,
+      unique_filename: true,
+      timestamp: timestamp
+    };
 
     if (fileType.includes('pdf')) {
+      options.filename_override = `cardapio_${timestamp}.pdf`;
+      options.flags = 'attachment';
+      options.format = 'pdf';
+      
+      console.log('Iniciando upload de PDF...');
       const uploadResult = await cloudinary.uploader.upload(
-        `data:application/pdf;base64,${req.body.file}`, {
-          resource_type: 'raw',
-          folder: "cardapios",
-          upload_preset: "cardapios_preset",
-          format: 'pdf',
-          type: 'upload',
-          use_filename: true,
-          unique_filename: true,
-          filename_override: `cardapio_${timestamp}.pdf`,
-          flags: 'attachment'
-        }
+        `data:application/pdf;base64,${req.body.file}`, 
+        options
       );
 
-      // URL direta para download sem autenticação
+      console.log('Upload de PDF concluído:', uploadResult);
+      
       const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
         type: 'upload',
@@ -58,16 +72,43 @@ app.post('/api/upload', async (req, res) => {
         fileType: 'pdf'
       });
     } else {
-      // Código para imagens permanece o mesmo
+      console.log('Iniciando upload de imagem...');
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:${fileType};base64,${req.body.file}`,
+        options
+      );
+
+      console.log('Upload de imagem concluído:', uploadResult);
+      
+      return res.json({
+        success: true,
+        fileUrl: uploadResult.secure_url,
+        fileType: fileType
+      });
     }
   } catch (error) {
     console.error("Erro no upload:", error);
     res.status(500).json({ 
       success: false,
-      error: error.message 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
 
+// Rota de saúde para verificar se o servidor está online
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'online',
+        timestamp: new Date().toISOString()
+    });
+});
+
 const PORT = process.env.PORT || 3009;
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`Servidor rodando na porta ${PORT}`);
+    console.log('Configuração do Cloudinary:', {
+        cloud_name: process.env.CLOUDINARY_NAME,
+        api_key: process.env.CLOUDINARY_KEY ? '***' : 'não configurado'
+    });
+});
