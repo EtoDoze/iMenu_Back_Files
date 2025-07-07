@@ -24,10 +24,7 @@ app.use((req, res, next) => {
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
-    console.log('Recebendo upload...');
-    
     if (!req.body || !req.body.file) {
-      console.error('Dados do arquivo não recebidos');
       return res.status(400).json({ 
         success: false,
         error: "Dados do arquivo não recebidos" 
@@ -39,31 +36,24 @@ app.post('/api/upload', async (req, res) => {
     const options = {
       resource_type: fileType.includes('pdf') ? 'raw' : 'image',
       folder: "cardapios",
-      upload_preset: "cardapios_preset",
       use_filename: true,
       unique_filename: true,
       timestamp: timestamp
     };
 
-    if (fileType.includes('pdf')) {
-      options.filename_override = `cardapio_${timestamp}.pdf`;
-      options.flags = 'attachment';
-      options.format = 'pdf';
-      
-      console.log('Iniciando upload de PDF...');
-      const uploadResult = await cloudinary.uploader.upload(
-        `data:application/pdf;base64,${req.body.file}`, 
-        options
-      );
+    // Upload do arquivo
+    const uploadResult = await cloudinary.uploader.upload(
+      `data:${fileType.includes('pdf') ? 'application/pdf' : fileType};base64,${req.body.file}`,
+      options
+    );
 
-      console.log('Upload de PDF concluído:', uploadResult);
-      
+    // Para PDFs, construa a URL de download corretamente
+    if (fileType.includes('pdf')) {
       const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
-        type: 'upload',
         secure: true,
         flags: 'attachment',
-        format: 'pdf'
+        type: 'upload'
       });
 
       return res.json({
@@ -71,27 +61,20 @@ app.post('/api/upload', async (req, res) => {
         fileUrl: downloadUrl,
         fileType: 'pdf'
       });
-    } else {
-      console.log('Iniciando upload de imagem...');
-      const uploadResult = await cloudinary.uploader.upload(
-        `data:${fileType};base64,${req.body.file}`,
-        options
-      );
-
-      console.log('Upload de imagem concluído:', uploadResult);
-      
-      return res.json({
-        success: true,
-        fileUrl: uploadResult.secure_url,
-        fileType: fileType
-      });
     }
+
+    // Para imagens
+    return res.json({
+      success: true,
+      fileUrl: uploadResult.secure_url,
+      fileType: fileType
+    });
+    
   } catch (error) {
     console.error("Erro no upload:", error);
     res.status(500).json({ 
       success: false,
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 });
