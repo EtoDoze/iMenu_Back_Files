@@ -30,7 +30,6 @@ app.post('/api/upload', async (req, res) => {
     const timestamp = Date.now();
 
     if (fileType.includes('pdf')) {
-      // Upload de PDF com configurações específicas
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${req.body.file}`, {
           resource_type: 'raw',
@@ -41,16 +40,25 @@ app.post('/api/upload', async (req, res) => {
           use_filename: true,
           unique_filename: true,
           filename_override: `cardapio_${timestamp}.pdf`,
-          flags: 'attachment' // Força download
+          flags: 'attachment' // Isso força o download
         }
       );
 
+      // Modifica a URL para garantir o download
+      let fileUrl = uploadResult.secure_url;
+      
+      // Se já não tiver o parâmetro de download, adiciona
+      if (!fileUrl.includes('fl_attachment')) {
+        fileUrl = fileUrl.replace('/upload/', '/upload/fl_attachment/');
+      }
+      
       return res.json({
         success: true,
-        fileUrl: uploadResult.secure_url,
+        fileUrl: fileUrl,
         fileType: 'pdf'
       });
-    } else {
+    }
+    else{
       // Upload de imagem
       const uploadResult = await cloudinary.uploader.upload(
         `data:image/jpeg;base64,${req.body.file}`, {
