@@ -48,20 +48,24 @@ app.post('/api/upload', async (req, res) => {
     );
 
     // Para PDFs, construa a URL de download corretamente
-    if (fileType.includes('pdf')) {
-      const downloadUrl = cloudinary.url(uploadResult.public_id, {
-        resource_type: 'raw',
-        secure: true,
-        flags: 'attachment',
-        type: 'upload'
-      });
+ // Dentro da rota /api/upload, na parte de PDFs:
+if (fileType.includes('pdf')) {
+  const publicIdWithExtension = `${uploadResult.public_id}.pdf`;
+  
+  const downloadUrl = cloudinary.url(publicIdWithExtension, {
+    resource_type: 'raw',
+    secure: true,
+    flags: 'attachment',
+    type: 'upload'
+  });
 
-      return res.json({
-        success: true,
-        fileUrl: downloadUrl,
-        fileType: 'pdf'
-      });
-    }
+  return res.json({
+    success: true,
+    fileUrl: downloadUrl,
+    fileType: 'pdf',
+    fileName: `cardapio_${timestamp}.pdf` // Nome consistente
+  });
+}
 
     // Para imagens
     return res.json({
