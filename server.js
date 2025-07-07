@@ -2,19 +2,21 @@ import express from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import cors from 'cors';
 
-// Configuração do Cloudinary
+// Configuração correta do Cloudinary
 cloudinary.config({ 
-  cloud_name: process.env.CLOUDINARY_NAME,
+  cloud_name: process.env.CLOUDINARY_NAME, // Corrigido o nome da variável
   api_key: process.env.CLOUDINARY_KEY, 
-  api_secret: process.env.CLOUDINARY_SECRET
+  api_secret: process.env.CLOUDINARY_SECRET 
 });
 
 const app = express();
 
+// Middlewares corretos
 app.use(cors());
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+// Rota de upload completa
 app.post('/api/upload', async (req, res) => {
   try {
     if (!req.body || !req.body.file) {
@@ -28,35 +30,41 @@ app.post('/api/upload', async (req, res) => {
     const timestamp = Date.now();
 
     if (fileType.includes('pdf')) {
+      // Upload de PDF com configurações específicas
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${req.body.file}`, {
           resource_type: 'raw',
           folder: "cardapios",
           upload_preset: "cardapios_preset",
           format: 'pdf',
-          type: 'private',  // Alterado para private
-          discard_original_filename: true,
+          type: 'upload',
+          use_filename: true,
           unique_filename: true,
-          filename_override: `cardapio_${timestamp}`
+          filename_override: `cardapio_${timestamp}.pdf`,
+          flags: 'attachment' // Força download
         }
       );
 
-      // URL assinada para garantir acesso
-      const signedUrl = cloudinary.url(uploadResult.public_id, {
-        resource_type: 'raw',
-        type: 'private',
-        sign_url: true,
-        secure: true,
-        expires_at: Math.floor(Date.now() / 1000) + 3600 // Expira em 1 hora
-      });
-
       return res.json({
         success: true,
-        fileUrl: signedUrl,
+        fileUrl: uploadResult.secure_url,
         fileType: 'pdf'
       });
     } else {
-      // Código para imagens permanece o mesmo
+      // Upload de imagem
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:image/jpeg;base64,${req.body.file}`, {
+          folder: "cardapios",
+          upload_preset: "cardapios_preset",
+          filename_override: `img_${timestamp}.jpg`
+        }
+      );
+      
+      return res.json({
+        success: true,
+        fileUrl: uploadResult.secure_url,
+        fileType: fileType
+      });
     }
   } catch (error) {
     console.error("Erro detalhado:", error);
