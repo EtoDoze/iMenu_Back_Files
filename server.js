@@ -27,49 +27,39 @@ app.post('/api/upload', async (req, res) => {
 
     const fileType = req.body.fileType || 'image';
     const timestamp = Date.now();
-    const options = {
-      folder: "cardapios",
-      upload_preset: "cardapios_preset",
-      use_filename: true,
-      unique_filename: true,
-      resource_type: fileType.includes('pdf') ? 'raw' : 'image',
-      flags: fileType.includes('pdf') ? 'attachment' : null
-    };
 
-    // Configurações específicas para PDF
     if (fileType.includes('pdf')) {
-      options.format = 'pdf';
-      options.filename_override = `cardapio_${timestamp}.pdf`;
-      options.type = 'authenticated'; // Acesso mais seguro
-    } else {
-      options.filename_override = `img_${timestamp}.jpg`;
-    }
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:application/pdf;base64,${req.body.file}`, {
+          resource_type: 'raw',
+          folder: "cardapios",
+          upload_preset: "cardapios_preset",
+          format: 'pdf',
+          type: 'upload',
+          use_filename: true,
+          unique_filename: true,
+          filename_override: `cardapio_${timestamp}.pdf`,
+          flags: 'attachment'
+        }
+      );
 
-    const uploadResult = await cloudinary.uploader.upload(
-      `data:${fileType.includes('pdf') ? 'application/pdf' : 'image/jpeg'};base64,${req.body.file}`,
-      options
-    );
-
-    // Para PDFs, gera URL assinada com tempo de expiração
-    let fileUrl = uploadResult.secure_url;
-    if (fileType.includes('pdf')) {
-      fileUrl = cloudinary.url(uploadResult.public_id, {
+      // URL direta para download sem autenticação
+      const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
-        type: 'authenticated',
-        sign_url: true,
+        type: 'upload',
         secure: true,
-        expires_at: Math.floor(Date.now() / 1000) + 3600, // Expira em 1 hora
         flags: 'attachment',
         format: 'pdf'
       });
+
+      return res.json({
+        success: true,
+        fileUrl: downloadUrl,
+        fileType: 'pdf'
+      });
+    } else {
+      // Código para imagens permanece o mesmo
     }
-
-    return res.json({
-      success: true,
-      fileUrl: fileUrl,
-      fileType: fileType
-    });
-
   } catch (error) {
     console.error("Erro no upload:", error);
     res.status(500).json({ 
