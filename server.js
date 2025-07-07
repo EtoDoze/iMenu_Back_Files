@@ -24,62 +24,36 @@ app.use((req, res, next) => {
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
-    if (!req.body || !req.body.file) {
-      return res.status(400).json({ 
-        success: false,
-        error: "Dados do arquivo não recebidos" 
-      });
-    }
-
-    const fileType = req.body.fileType || 'image';
-    const timestamp = Date.now();
+    const { file, fileType } = req.body;
+    
+    // Configurações específicas para PDF
     const options = {
-      resource_type: fileType.includes('pdf') ? 'raw' : 'image',
+      resource_type: 'raw',
+      type: 'upload',
       folder: "cardapios",
       use_filename: true,
-      unique_filename: true,
-      timestamp: timestamp
+      filename_override: 'cardapio.pdf', // Força o nome do arquivo
+      flags: 'attachment'
     };
 
-    // Upload do arquivo
     const uploadResult = await cloudinary.uploader.upload(
-      `data:${fileType.includes('pdf') ? 'application/pdf' : fileType};base64,${req.body.file}`,
+      `data:application/pdf;base64,${file}`,
       options
     );
 
-    // Para PDFs, construa a URL de download corretamente
- // Dentro da rota /api/upload, na parte de PDFs:
-if (fileType.includes('pdf')) {
-  const publicIdWithExtension = `${uploadResult.public_id}.pdf`;
-  
-  const downloadUrl = cloudinary.url(publicIdWithExtension, {
-    resource_type: 'raw',
-    secure: true,
-    flags: 'attachment',
-    type: 'upload'
-  });
-
-  return res.json({
-    success: true,
-    fileUrl: downloadUrl,
-    fileType: 'pdf',
-    fileName: `cardapio_${timestamp}.pdf` // Nome consistente
-  });
-}
-
-    // Para imagens
-    return res.json({
-      success: true,
-      fileUrl: uploadResult.secure_url,
-      fileType: fileType
+    // URL de download garantida
+    const downloadUrl = cloudinary.url(uploadResult.public_id, {
+      resource_type: 'raw',
+      type: 'upload',
+      flags: 'attachment',
+      secure: true,
+      sign_url: true // Adiciona assinatura de segurança
     });
-    
+
+    res.json({ success: true, fileUrl: downloadUrl });
   } catch (error) {
-    console.error("Erro no upload:", error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message
-    });
+    console.error("Upload error:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
