@@ -24,33 +24,31 @@ app.use((req, res, next) => {
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
-    const { file, fileType } = req.body;
+    const { file } = req.body;
     
-    // Configurações específicas para PDF
-    const options = {
+    const uploadResult = await cloudinary.uploader.upload(`data:application/pdf;base64,${file}`, {
       resource_type: 'raw',
-      type: 'upload',
       folder: "cardapios",
       use_filename: true,
-      filename_override: 'cardapio.pdf', // Força o nome do arquivo
-      flags: 'attachment'
-    };
-
-    const uploadResult = await cloudinary.uploader.upload(
-      `data:application/pdf;base64,${file}`,
-      options
-    );
+      unique_filename: true,
+      flags: 'attachment',
+      type: 'upload'
+    });
 
     // URL de download garantida
     const downloadUrl = cloudinary.url(uploadResult.public_id, {
       resource_type: 'raw',
       type: 'upload',
       flags: 'attachment',
-      secure: true,
-      sign_url: true // Adiciona assinatura de segurança
+      secure: true
     });
 
-    res.json({ success: true, fileUrl: downloadUrl });
+    res.json({ 
+      success: true, 
+      fileUrl: downloadUrl,
+      public_id: uploadResult.public_id // Para debug
+    });
+    
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ success: false, error: error.message });
