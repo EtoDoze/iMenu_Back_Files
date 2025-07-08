@@ -22,27 +22,25 @@ app.use((req, res, next) => {
 });
 
 // Rota de upload otimizada
+// Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
     const { file, fileType, isCardapio } = req.body;
     
-    // Configurações comuns
     const options = {
       folder: "cardapios",
       use_filename: true,
       unique_filename: true,
-      resource_type: 'auto' // Detecta automaticamente o tipo
+      resource_type: 'auto'
     };
 
-    // Se for PDF do cardápio
     if (isCardapio && fileType.includes('pdf')) {
       // Configurações específicas para PDF
       options.resource_type = 'raw';
       options.type = 'upload';
-      options.flags = 'attachment';
-      options.filename_override = 'cardapio'; // Nome consistente para download
+      options.filename_override = 'cardapio';
       options.content_disposition = 'attachment; filename="cardapio.pdf"';
-
+      
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${file}`,
         options
@@ -51,7 +49,6 @@ app.post('/api/upload', async (req, res) => {
       // Gera URL de download direto
       const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
-        type: 'upload',
         secure: true,
         flags: 'attachment',
         content_disposition: 'attachment; filename="cardapio.pdf"'
@@ -61,11 +58,10 @@ app.post('/api/upload', async (req, res) => {
         success: true,
         fileUrl: downloadUrl,
         fileType: 'pdf',
-        originalFilename: 'cardapio.pdf' // Informação adicional para o frontend
+        originalFilename: 'cardapio.pdf'
       });
-    }
-    // Para imagens (capa ou cardápio antigo)
-    else {
+    } else {
+      // Para imagens
       options.resource_type = 'image';
       const uploadResult = await cloudinary.uploader.upload(
         `data:${fileType};base64,${file}`,
@@ -82,11 +78,11 @@ app.post('/api/upload', async (req, res) => {
     console.error("Upload error:", error);
     res.status(500).json({ 
       success: false,
-      error: error.message,
-      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.message
     });
   }
 });
+
 
 // Rota para forçar download de arquivos
 app.get('/api/download', async (req, res) => {
