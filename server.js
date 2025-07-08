@@ -26,19 +26,20 @@ app.post('/api/upload', async (req, res) => {
   try {
     const { file, fileType, isCardapio } = req.body;
     
-    const options = {
-      folder: "cardapios",
-      use_filename: true,
-      unique_filename: true,
-      resource_type: 'auto'
-    };
+const options = {
+  folder: "cardapios",
+  use_filename: true,
+  unique_filename: true,
+  resource_type: 'auto',
+  content_disposition: 'attachment', // Força download
+  flags: 'attachment' // Adiciona header Content-Disposition
+};
 
     if (isCardapio && fileType.includes('pdf')) {
-      // Configurações específicas para PDF
-      options.resource_type = 'raw';
-      options.type = 'upload';
-      options.filename_override = 'cardapio';
-      options.content_disposition = 'attachment; filename="cardapio.pdf"';
+options.resource_type = 'raw';
+  options.type = 'upload';
+  options.filename_override = 'cardapio';
+  options.content_disposition = 'attachment; filename="cardapio.pdf"';
       
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${file}`,
