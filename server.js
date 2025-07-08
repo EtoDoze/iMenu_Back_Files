@@ -23,6 +23,7 @@ app.use((req, res, next) => {
 
 // Rota de upload otimizada
 // Rota de upload otimizada
+// Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
     const { file, fileType, isCardapio } = req.body;
@@ -46,13 +47,11 @@ app.post('/api/upload', async (req, res) => {
         options
       );
 
-      // Gera URL de download direto
-      const downloadUrl = cloudinary.url(uploadResult.public_id, {
-        resource_type: 'raw',
-        secure: true,
-        flags: 'attachment',
-        content_disposition: 'attachment; filename="cardapio.pdf"'
-      });
+      // Garante que a URL termina com .pdf
+      let downloadUrl = uploadResult.secure_url;
+      if (!downloadUrl.toLowerCase().endsWith('.pdf')) {
+        downloadUrl += '.pdf';
+      }
 
       return res.json({
         success: true,
@@ -82,7 +81,6 @@ app.post('/api/upload', async (req, res) => {
     });
   }
 });
-
 
 // Rota para forçar download de arquivos
 app.get('/api/download', async (req, res) => {
