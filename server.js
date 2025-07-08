@@ -30,11 +30,11 @@ app.post('/api/upload', async (req, res) => {
       folder: "cardapios",
       use_filename: true,
       unique_filename: true,
-      resource_type: 'auto',
-      format: isCardapio ? 'pdf' : undefined
+      resource_type: 'auto'
     };
 
     if (isCardapio && fileType.includes('pdf')) {
+      // Configurações específicas para PDF
       options.resource_type = 'raw';
       options.type = 'upload';
       options.filename_override = 'cardapio';
@@ -45,7 +45,7 @@ app.post('/api/upload', async (req, res) => {
         options
       );
 
-      // Força o download direto sem redirecionamento
+      // Gera URL de download direto
       const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
         secure: true,
@@ -60,6 +60,7 @@ app.post('/api/upload', async (req, res) => {
         originalFilename: 'cardapio.pdf'
       });
     } else {
+      // Para imagens
       options.resource_type = 'image';
       const uploadResult = await cloudinary.uploader.upload(
         `data:${fileType};base64,${file}`,
