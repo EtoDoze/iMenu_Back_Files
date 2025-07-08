@@ -12,6 +12,18 @@ cloudinary.config({
 const app = express();
 
 app.use(cors());
+// Substitua o app.use(cors()) atual por isso:
+const corsOptions = {
+  origin: ['http://127.0.0.1:5503', 'https://seu-frontend-prod.com'], // Adicione todas as origens necessárias
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
+
+// Adicione isso antes das rotas para lidar com requisições OPTIONS (preflight)
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
