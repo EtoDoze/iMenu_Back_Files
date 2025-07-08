@@ -12,10 +12,10 @@ cloudinary.config({
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Aumente o limite
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Middleware de log para depuração
+// Middleware de log
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
@@ -30,36 +30,43 @@ app.post('/api/upload', async (req, res) => {
     const options = {
       folder: "cardapios",
       use_filename: true,
-      unique_filename: true
+      unique_filename: true,
+      resource_type: 'auto' // Detecta automaticamente o tipo
     };
 
     // Se for PDF do cardápio
     if (isCardapio && fileType.includes('pdf')) {
+      // Configurações específicas para PDF
       options.resource_type = 'raw';
+      options.type = 'upload';
       options.flags = 'attachment';
-      
+      options.filename_override = 'cardapio'; // Nome consistente para download
+      options.content_disposition = 'attachment; filename="cardapio.pdf"';
+
       const uploadResult = await cloudinary.uploader.upload(
         `data:application/pdf;base64,${file}`,
         options
       );
 
+      // Gera URL de download direto
       const downloadUrl = cloudinary.url(uploadResult.public_id, {
         resource_type: 'raw',
         type: 'upload',
         secure: true,
-        flags: 'attachment'
+        flags: 'attachment',
+        content_disposition: 'attachment; filename="cardapio.pdf"'
       });
 
       return res.json({
         success: true,
         fileUrl: downloadUrl,
-        fileType: 'pdf'
+        fileType: 'pdf',
+        originalFilename: 'cardapio.pdf' // Informação adicional para o frontend
       });
     }
     // Para imagens (capa ou cardápio antigo)
     else {
       options.resource_type = 'image';
-      
       const uploadResult = await cloudinary.uploader.upload(
         `data:${fileType};base64,${file}`,
         options
@@ -75,16 +82,43 @@ app.post('/api/upload', async (req, res) => {
     console.error("Upload error:", error);
     res.status(500).json({ 
       success: false,
-      error: error.message
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
 
-// Rota de saúde para verificar se o servidor está online
+// Rota para forçar download de arquivos
+app.get('/api/download', async (req, res) => {
+  try {
+    const { public_id } = req.query;
+    
+    if (!public_id) {
+      return res.status(400).json({ error: 'ID do arquivo não fornecido' });
+    }
+
+    const downloadUrl = cloudinary.url(public_id, {
+      resource_type: 'raw',
+      secure: true,
+      flags: 'attachment',
+      content_disposition: 'attachment'
+    });
+
+    res.redirect(downloadUrl);
+  } catch (error) {
+    console.error("Download error:", error);
+    res.status(500).json({ error: 'Erro ao gerar URL de download' });
+  }
+});
+
+// Rota de saúde
 app.get('/health', (req, res) => {
     res.status(200).json({ 
         status: 'online',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        cloudinary: {
+          configured: !!process.env.CLOUDINARY_NAME
+        }
     });
 });
 
