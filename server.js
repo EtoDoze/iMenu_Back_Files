@@ -24,34 +24,59 @@ app.use((req, res, next) => {
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
   try {
-    const { file } = req.body;
+    const { file, fileType, isCardapio } = req.body;
     
-    const uploadResult = await cloudinary.uploader.upload(`data:application/pdf;base64,${file}`, {
-      resource_type: 'raw',
+    // Configurações comuns
+    const options = {
       folder: "cardapios",
       use_filename: true,
-      unique_filename: true,
-      flags: 'attachment',
-      type: 'upload'
-    });
+      unique_filename: true
+    };
 
-    // URL de download garantida
-    const downloadUrl = cloudinary.url(uploadResult.public_id, {
-      resource_type: 'raw',
-      type: 'upload',
-      flags: 'attachment',
-      secure: true
-    });
+    // Se for PDF do cardápio
+    if (isCardapio && fileType.includes('pdf')) {
+      options.resource_type = 'raw';
+      options.flags = 'attachment';
+      
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:application/pdf;base64,${file}`,
+        options
+      );
 
-    res.json({ 
-      success: true, 
-      fileUrl: downloadUrl,
-      public_id: uploadResult.public_id // Para debug
-    });
-    
+      const downloadUrl = cloudinary.url(uploadResult.public_id, {
+        resource_type: 'raw',
+        type: 'upload',
+        secure: true,
+        flags: 'attachment'
+      });
+
+      return res.json({
+        success: true,
+        fileUrl: downloadUrl,
+        fileType: 'pdf'
+      });
+    }
+    // Para imagens (capa ou cardápio antigo)
+    else {
+      options.resource_type = 'image';
+      
+      const uploadResult = await cloudinary.uploader.upload(
+        `data:${fileType};base64,${file}`,
+        options
+      );
+
+      return res.json({
+        success: true,
+        fileUrl: uploadResult.secure_url,
+        fileType: fileType
+      });
+    }
   } catch (error) {
     console.error("Upload error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: error.message
+    });
   }
 });
 
