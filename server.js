@@ -34,32 +34,33 @@ app.use((req, res, next) => {
 });
 
 // Rota de upload otimizada
+// Rota de upload otimizada
+// Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
     try {
-        const { file, fileType } = req.body;
+        const { file, fileType, isCardapio } = req.body;
         
         const options = {
             folder: "cardapios",
             use_filename: true,
             unique_filename: true,
-            resource_type: 'auto',
-            content_disposition: 'attachment',
-            flags: 'attachment'
+            resource_type: 'auto'
         };
 
         if (fileType.includes('pdf')) {
+            // Configurações específicas para PDFs (forçar download)
             options.resource_type = 'raw';
             options.type = 'upload';
             options.filename_override = 'cardapio';
             options.content_disposition = 'attachment; filename="cardapio.pdf"';
+            options.flags = 'attachment';
             
             const uploadResult = await cloudinary.uploader.upload(
                 `data:${fileType};base64,${file}`,
                 options
             );
 
-            // Gera URL de download direto
-            const downloadUrl = cloudinary.url(uploadResult.public_id, {
+            const fileUrl = cloudinary.url(uploadResult.public_id, {
                 resource_type: 'raw',
                 secure: true,
                 flags: 'attachment',
@@ -68,12 +69,12 @@ app.post('/api/upload', async (req, res) => {
 
             return res.json({
                 success: true,
-                fileUrl: downloadUrl,
+                fileUrl: fileUrl,
                 fileType: 'pdf',
                 originalFilename: 'cardapio.pdf'
             });
         } else {
-            // Para imagens
+            // Para imagens (visualização normal)
             options.resource_type = 'image';
             const uploadResult = await cloudinary.uploader.upload(
                 `data:${fileType};base64,${file}`,
