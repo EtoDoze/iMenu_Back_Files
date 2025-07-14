@@ -11,30 +11,90 @@ cloudinary.config({
 
 const app = express();
 
-app.use(cors());
-// Substitua o app.use(cors()) atual por isso:
+// Configuração do CORS mais robusta
 const corsOptions = {
-  origin: ['http://127.0.0.1:5503', 'https://ifpi-picos.github.io/projeto-integrador-i-menu'], // Adicione todas as origens necessárias
-  methods: ['GET', 'POST', 'OPTIONS'],
+  origin: [
+    'http://127.0.0.1:5503', 
+    'https://ifpi-picos.github.io',
+    'https://ifpi-picos.github.io/projeto-integrador-i-menu'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  credentials: true,
+  optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
-
-// Adicione isso antes das rotas para lidar com requisições OPTIONS (preflight)
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Middleware de log
+// Configuração dos middlewares com limites aumentados
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+
+// Middleware de log melhorado
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    console.log('Headers:', req.headers);
     next();
 });
 
-// Rota de upload otimizada
-// Rota de upload otimizada
+// Rota de upload de foto de perfil otimizada
+app.post('/api/upload-profile-pic', async (req, res) => {
+    try {
+        console.log('Iniciando upload de foto de perfil...');
+        
+        if (!req.body?.file) {
+            console.error('Dados da foto não fornecidos');
+            return res.status(400).json({ 
+                success: false,
+                error: 'Por favor, envie a imagem no campo "file"' 
+            });
+        }
+
+        // Configurações específicas para fotos de perfil
+        const uploadOptions = {
+            folder: "profile_pictures",
+            width: 300,
+            height: 300,
+            crop: "fill",
+            quality: "auto:best",
+            format: "jpg",
+            resource_type: "image",
+            faces: true,
+            detection: "faces"
+        };
+
+        console.log('Enviando para Cloudinary...');
+        const uploadResult = await cloudinary.uploader.upload(
+            `data:image/jpeg;base64,${req.body.file}`,
+            uploadOptions
+        );
+
+        console.log('Upload concluído com sucesso:', uploadResult);
+        
+        res.json({
+            success: true,
+            fileUrl: uploadResult.secure_url,
+            publicId: uploadResult.public_id
+        });
+
+    } catch (error) {
+        console.error("Erro durante o upload:", {
+            message: error.message,
+            stack: error.stack,
+            body: req.body
+        });
+        
+        res.status(500).json({ 
+            success: false,
+            error: 'Erro ao processar a imagem',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+
+
 // Rota de upload otimizada
 app.post('/api/upload', async (req, res) => {
     try {
@@ -97,51 +157,6 @@ app.post('/api/upload', async (req, res) => {
 });
 
 
-// Rota específica para fotos de perfil
-app.post('/api/upload-profile-pic', async (req, res) => {
-    try {
-        console.log('Recebendo upload de foto de perfil...');
-        
-        if (!req.body || !req.body.file) {
-            return res.status(400).json({ 
-                success: false,
-                error: 'Dados da foto não fornecidos' 
-            });
-        }
-
-        const { file } = req.body;
-        
-        // Configurações otimizadas para fotos de perfil
-        const options = {
-            folder: "profile_pics",
-            width: 300,
-            height: 300,
-            crop: "fill",
-            quality: "auto:good",
-            format: "jpg",
-            resource_type: "image"
-        };
-
-        const uploadResult = await cloudinary.uploader.upload(
-            `data:image/jpeg;base64,${file}`,
-            options
-        );
-
-        res.json({
-            success: true,
-            fileUrl: uploadResult.secure_url
-        });
-
-    } catch (error) {
-        console.error("Erro no upload da foto de perfil:", error);
-        res.status(500).json({ 
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-
 // Rota para forçar download de arquivos
 app.get('/api/download', async (req, res) => {
   try {
@@ -165,17 +180,20 @@ app.get('/api/download', async (req, res) => {
   }
 });
 
-// Rota de saúde
+// Rota de saúde melhorada
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
+    const status = {
         status: 'online',
         timestamp: new Date().toISOString(),
         cloudinary: {
-          configured: !!process.env.CLOUDINARY_NAME
-        }
-    });
+            configured: !!process.env.CLOUDINARY_NAME,
+            authenticated: !!cloudinary.config().api_key
+        },
+        memoryUsage: process.memoryUsage(),
+        uptime: process.uptime()
+    };
+    res.status(200).json(status);
 });
-
 
 
 const PORT = process.env.PORT || 3009;
