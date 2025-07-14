@@ -2,95 +2,63 @@ import express from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import cors from 'cors';
 
-// Configuração do Cloudinary
-cloudinary.config({ 
+// Configuração do Cloudinary com verificação
+const cloudinaryConfig = {
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.CLOUDINARY_KEY, 
   api_secret: process.env.CLOUDINARY_SECRET 
-});
+};
+
+if (!cloudinaryConfig.cloud_name || !cloudinaryConfig.api_key || !cloudinaryConfig.api_secret) {
+  console.error('Erro: Configuração do Cloudinary incompleta!');
+  process.exit(1);
+}
+
+cloudinary.config(cloudinaryConfig);
 
 const app = express();
 
-// Configuração do CORS mais robusta
-const corsOptions = {
+// Configuração simplificada e robusta do CORS
+app.use(cors({
   origin: [
     'http://127.0.0.1:5503', 
-    'https://ifpi-picos.github.io',
-    'https://ifpi-picos.github.io/projeto-integrador-i-menu'
+    'https://ifpi-picos.github.io'
   ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  optionsSuccessStatus: 200
-};
+  credentials: true
+}));
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// Configuração dos middlewares com limites aumentados
+// Middlewares básicos
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Middleware de log melhorado
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log('Headers:', req.headers);
-    next();
-});
-
-// Rota de upload de foto de perfil otimizada
-app.post('/api/upload-profile-pic', async (req, res) => {
-    try {
-        console.log('Iniciando upload de foto de perfil...');
-        
-        if (!req.body?.file) {
-            console.error('Dados da foto não fornecidos');
-            return res.status(400).json({ 
-                success: false,
-                error: 'Por favor, envie a imagem no campo "file"' 
-            });
-        }
-
-        // Configurações específicas para fotos de perfil
-        const uploadOptions = {
-            folder: "profile_pictures",
-            width: 300,
-            height: 300,
-            crop: "fill",
-            quality: "auto:best",
-            format: "jpg",
-            resource_type: "image",
-            faces: true,
-            detection: "faces"
-        };
-
-        console.log('Enviando para Cloudinary...');
-        const uploadResult = await cloudinary.uploader.upload(
-            `data:image/jpeg;base64,${req.body.file}`,
-            uploadOptions
-        );
-
-        console.log('Upload concluído com sucesso:', uploadResult);
-        
-        res.json({
-            success: true,
-            fileUrl: uploadResult.secure_url,
-            publicId: uploadResult.public_id
-        });
-
-    } catch (error) {
-        console.error("Erro durante o upload:", {
-            message: error.message,
-            stack: error.stack,
-            body: req.body
-        });
-        
-        res.status(500).json({ 
-            success: false,
-            error: 'Erro ao processar a imagem',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+// Rota de upload de foto de perfil (SIMPLIFICADA)
+app.post('/upload-profile-pic', async (req, res) => {
+  try {
+    if (!req.body?.file) {
+      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
+
+    const result = await cloudinary.uploader.upload(
+      `data:image/jpeg;base64,${req.body.file}`,
+      {
+        folder: "profile_pics",
+        width: 300,
+        height: 300,
+        crop: "fill"
+      }
+    );
+
+    res.json({
+      url: result.secure_url,
+      publicId: result.public_id
+    });
+    
+  } catch (error) {
+    console.error('Erro no upload:', error);
+    res.status(500).json({ error: 'Falha no upload da imagem' });
+  }
 });
 
 
@@ -194,7 +162,6 @@ app.get('/health', (req, res) => {
     };
     res.status(200).json(status);
 });
-
 
 const PORT = process.env.PORT || 3009;
 app.listen(PORT, () => {
