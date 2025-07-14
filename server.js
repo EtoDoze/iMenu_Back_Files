@@ -97,6 +97,7 @@ app.post('/api/upload', async (req, res) => {
 });
 
 
+// Rota específica para fotos de perfil
 app.post('/api/upload-profile-pic', async (req, res) => {
     try {
         console.log('Recebendo upload de foto de perfil...');
@@ -110,15 +111,15 @@ app.post('/api/upload-profile-pic', async (req, res) => {
 
         const { file } = req.body;
         
-        // Configurações específicas para fotos de perfil
+        // Configurações otimizadas para fotos de perfil
         const options = {
-            folder: "perfis",
-            resource_type: 'image',
+            folder: "profile_pics",
             width: 300,
             height: 300,
-            crop: 'fill',
-            quality: 'auto:good',
-            format: 'jpg'
+            crop: "fill",
+            quality: "auto:good",
+            format: "jpg",
+            resource_type: "image"
         };
 
         const uploadResult = await cloudinary.uploader.upload(
