@@ -24,8 +24,8 @@ app.use(cors(corsOptions));
 
 // Adicione isso antes das rotas para lidar com requisições OPTIONS (preflight)
 app.options('*', cors(corsOptions));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Middleware de log
 app.use((req, res, next) => {
@@ -96,6 +96,51 @@ app.post('/api/upload', async (req, res) => {
     }
 });
 
+
+app.post('/api/upload-profile-pic', async (req, res) => {
+    try {
+        console.log('Recebendo upload de foto de perfil...');
+        
+        if (!req.body || !req.body.file) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Dados da foto não fornecidos' 
+            });
+        }
+
+        const { file } = req.body;
+        
+        // Configurações específicas para fotos de perfil
+        const options = {
+            folder: "perfis",
+            resource_type: 'image',
+            width: 300,
+            height: 300,
+            crop: 'fill',
+            quality: 'auto:good',
+            format: 'jpg'
+        };
+
+        const uploadResult = await cloudinary.uploader.upload(
+            `data:image/jpeg;base64,${file}`,
+            options
+        );
+
+        res.json({
+            success: true,
+            fileUrl: uploadResult.secure_url
+        });
+
+    } catch (error) {
+        console.error("Erro no upload da foto de perfil:", error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message
+        });
+    }
+});
+
+
 // Rota para forçar download de arquivos
 app.get('/api/download', async (req, res) => {
   try {
@@ -129,6 +174,8 @@ app.get('/health', (req, res) => {
         }
     });
 });
+
+
 
 const PORT = process.env.PORT || 3009;
 app.listen(PORT, () => {
