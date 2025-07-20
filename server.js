@@ -60,22 +60,28 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             resource_type: 'auto'
         };
 
-        if (isPDF) {
-            // Configurações específicas para PDF
-            options.resource_type = 'raw';
-            options.type = 'upload';
-            options.filename_override = req.file.originalname || 'cardapio.pdf';
-            options.content_disposition = 'attachment'; // Isso força o download
-            options.flags = 'attachment';
-            
-            const uploadResult = await cloudinary.uploader.upload(`data:${fileType};base64,${fileBuffer.toString('base64')}`, options);
+if (isPDF) {
+    // Configurações específicas para PDF
+    options.resource_type = 'raw';
+    options.type = 'upload';
+    options.filename_override = req.file.originalname || 'cardapio.pdf';
+    options.content_disposition = 'attachment';
+    options.flags = 'attachment';
+    
+    // Preserva a extensão .pdf no nome do arquivo
+    if (!options.filename_override.toLowerCase().endsWith('.pdf')) {
+        options.filename_override += '.pdf';
+    }
+    
+    const uploadResult = await cloudinary.uploader.upload(`data:${fileType};base64,${fileBuffer.toString('base64')}`, options);
 
-            return res.json({
-                success: true,
-                fileUrl: uploadResult.secure_url,
-                fileType: 'pdf',
-                originalFilename: options.filename_override
-            });
+    return res.json({
+        success: true,
+        fileUrl: uploadResult.secure_url,
+        fileType: 'pdf',
+        originalFilename: options.filename_override
+    });
+
         } else if (isImage) {
             options.resource_type = 'image';
             const uploadResult = await cloudinary.uploader.upload(`data:${fileType};base64,${fileBuffer.toString('base64')}`, options);
