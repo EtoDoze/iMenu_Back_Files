@@ -1,8 +1,9 @@
 import express from 'express';
 import { v2 as cloudinary } from 'cloudinary';
 import cors from 'cors';
+import multer from 'multer'; // Adicione esta linha
 
-// Configuração do Cloudinary com verificação
+// Configuração do Cloudinary
 const cloudinaryConfig = {
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.CLOUDINARY_KEY, 
@@ -18,7 +19,7 @@ cloudinary.config(cloudinaryConfig);
 
 const app = express();
 
-// Configuração simplificada e robusta do CORS
+// Configuração do CORS
 app.use(cors({
   origin: [
     'http://127.0.0.1:5503', 
@@ -31,45 +32,31 @@ app.use(cors({
   credentials: true
 }));
 
-// Middlewares básicos
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
-
-// Rota de upload de foto de perfil (SIMPLIFICADA)
-app.post('/upload-profile-pic', async (req, res) => {
-  try {
-    if (!req.body?.file) {
-      return res.status(400).json({ error: 'Nenhum arquivo enviado' });
-    }
-
-    const result = await cloudinary.uploader.upload(
-      `data:image/jpeg;base64,${req.body.file}`,
-      {
-        folder: "profile_pics",
-        width: 300,
-        height: 300,
-        crop: "fill"
-      }
-    );
-
-    res.json({
-      url: result.secure_url,
-      publicId: result.public_id
-    });
-    
-  } catch (error) {
-    console.error('Erro no upload:', error);
-    res.status(500).json({ error: 'Falha no upload da imagem' });
-  }
+// Middleware para upload de arquivos
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 } // 25MB
 });
 
-
-
-// Rota de upload otimizada
-app.post('/api/upload', async (req, res) => {
+// Rota de upload otimizada para FormData
+app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
-        const { file, fileType, isCardapio } = req.body;
-        
+        if (!req.file) {
+            return res.status(400).json({ 
+                success: false,
+                error: 'Nenhum arquivo enviado'
+            });
+        }
+
+        const fileBuffer = req.file.buffer;
+        const fileType = req.file.mimetype;
+        const isImage = fileType.startsWith('image/');
+        const isPDF = fileType === 'application/pdf';
+
+        // Converter buffer para base64
+        const fileBase64 = fileBuffer.toString('base64');
+        const fileDataUri = `data:${fileType};base64,${fileBase64}`;
+
         const options = {
             folder: "cardapios",
             use_filename: true,
@@ -77,44 +64,34 @@ app.post('/api/upload', async (req, res) => {
             resource_type: 'auto'
         };
 
-        if (fileType.includes('pdf')) {
-            // Configurações específicas para PDFs (forçar download)
+        if (isPDF) {
             options.resource_type = 'raw';
             options.type = 'upload';
             options.filename_override = 'cardapio';
             options.content_disposition = 'attachment; filename="cardapio.pdf"';
             options.flags = 'attachment';
             
-            const uploadResult = await cloudinary.uploader.upload(
-                `data:${fileType};base64,${file}`,
-                options
-            );
-
-            const fileUrl = cloudinary.url(uploadResult.public_id, {
-                resource_type: 'raw',
-                secure: true,
-                flags: 'attachment',
-                content_disposition: 'attachment; filename="cardapio.pdf"'
-            });
+            const uploadResult = await cloudinary.uploader.upload(fileDataUri, options);
 
             return res.json({
                 success: true,
-                fileUrl: fileUrl,
+                fileUrl: uploadResult.secure_url,
                 fileType: 'pdf',
                 originalFilename: 'cardapio.pdf'
             });
-        } else {
-            // Para imagens (visualização normal)
+        } else if (isImage) {
             options.resource_type = 'image';
-            const uploadResult = await cloudinary.uploader.upload(
-                `data:${fileType};base64,${file}`,
-                options
-            );
+            const uploadResult = await cloudinary.uploader.upload(fileDataUri, options);
 
             return res.json({
                 success: true,
                 fileUrl: uploadResult.secure_url,
                 fileType: fileType
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                error: 'Tipo de arquivo não suportado'
             });
         }
     } catch (error) {
@@ -125,7 +102,6 @@ app.post('/api/upload', async (req, res) => {
         });
     }
 });
-
 
 // Rota para forçar download de arquivos
 app.get('/api/download', async (req, res) => {
